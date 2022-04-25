@@ -1,0 +1,75 @@
+df <- Advertising
+glimpse(df)
+summary(df)
+profiling_num(df)
+sum(is.na(df))
+
+## TV Harcamaları ve Satışlar Arasındaki İlişki
+plot(Sales ~ TV, data = df,
+     pch = 20, cex = 1.5, main = "Satislar vs TV Harcamalari")
+     
+## Tum Degiskenler Icin Scatter Plot
+pairs(df)
+
+chart.Correlation(df, histogram =  TRUE, pch = 19)
+
+## Bagimli Degiskene Yonelik Scatter Plot
+featurePlot(x = df[ , c("TV", "Radio", "Newspaper")], y = df$Sales)
+
+## MODEL ##
+# Tum Degiskenler Ile Model 
+lm(Sales ~ . , data = df)
+summary(lm(Sales ~ . , data = df))
+
+# Anlamsiz Degisken Cikarildiktan Sonra Model
+lm_model <- lm(Sales~ TV + Radio, data = df)
+summary(lm_model)
+
+## Tahmin ##
+
+# ilk on gozlem
+head(predict(lm_model))
+
+
+# yeni bir gozlem 
+yeni_gozlem <- data.frame(
+  TV = 120, radio = 50
+)
+
+# bagimsiz degiskenlerin degerlerini barindiran yeni gozlemli kullanarak tahminde bulunalim.
+predict(lm_model,yeni_gozlem )
+
+# tahmin edilen deger icin guven araligi 
+predict(lm_model, yeni_gozlem, interval = "confidence")
+
+
+# guven araligini da belirleyebiliriz
+predict(lm_model, yeni_gozlem, interval = "confidence", level = 0.80)
+
+## Artiklara Erismek ##
+
+#Artiklar
+
+head(resid(lm_model), 10)
+head(rstudent(lm_model), 10)
+
+# gercek degerler
+head(df$sales, 10)
+
+# tahmin edilen degerler
+head(predict(lm_model),10)
+
+# karsilastirma tablosu
+kar <- data.frame(
+  y = head(df$Sales, 10),
+  ysapka = head(predict(lm_model),10)
+  
+)
+
+kar$hata <- kar$y - kar$ysapka
+SSE
+RMSE
+kar$kare <- kar$hata^2
+mean(kar$kare[-6])
+
+df[6,]
