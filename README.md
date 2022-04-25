@@ -1,4 +1,4 @@
-## libraries should be established
+Advertising dataset must be uploaded
 
 library(caret)
 library(tidyverse)
