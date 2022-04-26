@@ -1,0 +1,85 @@
+df <- Hitters
+df <- na.omit(df)
+glimpse(df)
+rownames(df) <- c()
+
+set.seed(3456)
+train_indeks <- createDataPartition(df$Salary, 
+                                    p = .8, 
+                                    list = FALSE, 
+                                    times = 1)
+head(train_indeks)
+
+
+train <- df[train_indeks, ]
+test <- df[-train_indeks, ]
+
+train_x <- train %>% dplyr::select(-Salary)
+train_y <- train$Salary
+
+
+test_x <- test %>% dplyr::select(-Salary)
+test_y <- test$Salary
+
+
+# a single dataset 
+training <- data.frame(train_x, Salary = train_y)
+
+glimpse(training)
+plot_num(training)
+
+## Scatter Plot for All Variables
+pairs(df %>% dplyr::select(-c("League","NewLeague","Division")))
+
+## Advanced Scatter Plot
+chart.Correlation(df %>% dplyr::select(-c("League","NewLeague","Division")), histogram=TRUE, pch=19)
+
+## Model
+lm_fit <- lm(Salary ~ ., data = training)
+
+# pattern output.
+summary(lm_fit)
+
+# can be retrieved from the model object
+names(lm_fit)
+
+# Let's examine the errors with caret.
+defaultSummary(data.frame(obs = training$Salary,
+pred = lm_fit$fitted.values)
+)
+
+## Prediction
+
+# Prediction with Model
+defaultSummary(data.frame(obs = training$Salary,
+pred = lm_fit$fitted.values)
+)
+
+head(predict(lm_fit, train_x))
+head(lm_fit$fitted.values)
+
+
+# Calculation of Test Error
+defaultSummary(data.frame(obs = test_y,
+pred = predict(lm_fit, test_x))
+)
+
+## Model Tuning
+ctrl <- trainControl(method = "cv", 
+                     number = 10)
+
+lm_val_fit <- train(x = train_x, y = train_y,
+      method = "lm",
+      trControl = ctrl)
+
+
+lm_val_fit$results
+
+summary(lm_val_fit)
+names(lm_val_fit)
+lm_val_fit$finalModel
+
+
+
+
+
