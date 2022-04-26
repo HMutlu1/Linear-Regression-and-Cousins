@@ -1,5 +1,7 @@
 Advertising dataset must be uploaded
 
+Hitters dataset must be uploaded
+
 library(caret)
 library(tidyverse)
 library(AppliedPredictiveModeling)
