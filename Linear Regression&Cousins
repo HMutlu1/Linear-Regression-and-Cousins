@@ -1,0 +1,366 @@
+df <- Hitters
+df <- na.omit(df)
+glimpse(df)
+rownames(df) <- c()
+
+set.seed(3456)
+train_indeks <- createDataPartition(df$Salary, 
+                                    p = .8, 
+                                    list = FALSE, 
+                                    times = 1)
+head(train_indeks)
+
+
+train <- df[train_indeks, ]
+test <- df[-train_indeks, ]
+
+train_x <- train %>% dplyr::select(-Salary)
+train_y <- train$Salary
+
+
+test_x <- test %>% dplyr::select(-Salary)
+test_y <- test$Salary
+
+
+# a single dataset 
+training <- data.frame(train_x, Salary = train_y)
+
+glimpse(training)
+plot_num(training)
+
+## Scatter Plot for All Variables
+pairs(df %>% dplyr::select(-c("League","NewLeague","Division")))
+
+## Advanced Scatter Plot
+chart.Correlation(df %>% dplyr::select(-c("League","NewLeague","Division")), histogram=TRUE, pch=19)
+
+## Model
+lm_fit <- lm(Salary ~ ., data = training)
+
+# pattern output.
+summary(lm_fit)
+
+# can be retrieved from the model object
+names(lm_fit)
+
+# Let's examine the errors with caret.
+defaultSummary(data.frame(obs = training$Salary,
+pred = lm_fit$fitted.values)
+)
+
+## Prediction
+
+# Prediction with Model
+defaultSummary(data.frame(obs = training$Salary,
+pred = lm_fit$fitted.values)
+)
+
+head(predict(lm_fit, train_x))
+head(lm_fit$fitted.values)
+
+
+# Calculation of Test Error
+defaultSummary(data.frame(obs = test_y,
+pred = predict(lm_fit, test_x))
+)
+
+## Model Tuning
+ctrl <- trainControl(method = "cv", 
+                     number = 10)
+
+lm_val_fit <- train(x = train_x, y = train_y,
+      method = "lm",
+      trControl = ctrl)
+
+
+lm_val_fit$results
+
+summary(lm_val_fit)
+names(lm_val_fit)
+lm_val_fit$finalModel
+
+
+
+## Principal Components Regression
+
+# Model
+pcr_fit <- pcr(Salary~., data = training,
+    scale = TRUE,
+    validation = "CV")
+
+pcr_fit
+
+summary(pcr_fit)
+validationplot(pcr_fit, val.type = "MSEP")
+
+names(pcr_fit)
+
+defaultSummary(data.frame(obs = training$Salary,
+pred = as.vector(pcr_fit$fitted.values))
+)
+
+# Predict
+predict(pcr_fit, test_x[1:10,], ncomp = 1:2)
+
+defaultSummary(data.frame(obs = test_y,
+pred = as.vector(predict(pcr_fit, test_x, ncomp = 1:19)))
+)
+
+# Model Tunning
+ctrl <- trainControl(method = "cv", number = 10)
+set.seed(100)
+
+pcr_tune <- train(train_x, train_y,
+                  method = "pcr",
+                  trControl = ctrl,
+                  preProc = c("center", "scale"))
+                  
+# model printout
+pcr_tune
+
+pcr_tune <- train(train_x, train_y,
+                  method = "pcr",
+                  trControl = ctrl,
+                  tuneLength = 20,
+                  preProc = c("center", "scale"))
+
+pcr_tune
+
+plot(pcr_tune)
+
+pcr_tune$finalModel
+
+# Model Test Error
+defaultSummary(data.frame(obs = test_y,
+pred = as.vector(predict(pcr_tune, test_x)))
+)
+
+
+## Partial Least Squares
+
+# Model
+pls_fit <- plsr(Salary~., data  = training)
+
+summary(pls_fit)
+
+validationplot(pls_fit, val.type = "MSEP")
+
+names(pls_fit)
+
+# Predict
+predict(pls_fit, test_x[1:10,], ncomp = 1:2)
+defaultSummary(data.frame(obs = test_y,
+pred = as.vector(predict(pls_fit, test_x)))
+)
+
+
+# Model Tuning
+ctrl <- trainControl(method = "cv", number = 10)
+set.seed(100)
+
+
+pls_tune <- train(train_x, train_y,
+                  method = "pls",
+                  trControl = ctrl,
+                  tuneLength = 20,
+                  preProc = c("center", "scale"))
+
+plot(pls_tune)
+
+pls_tune$results
+
+
+defaultSummary(data.frame(obs = test_y,
+pred = as.vector(predict(pls_tune, test_x)))
+)
+
+
+
+## Ridge Regression
+
+# Model
+train_x_x <- train_x %>% dplyr::select(-c("League","NewLeague","Division"))
+
+rigde_fit <- glmnet(as.matrix(train_x_x), y= train_y,
+                    alpha = 0)
+
+rigde_fit
+summary(rigde_fit)
+names(rigde_fit)
+rigde_fit$beta
+
+
+plot(rigde_fit, xvar = "lambda", label = TRUE)
+min(log(rigde_fit$lambda))
+
+
+# Using CV for the Right Lambda
+
+ridge_cv_fit <- cv.glmnet(as.matrix(train_x_x), y= train_y,
+                    alpha = 0)
+
+plot(ridge_cv_fit)
+
+
+ridge_cv_fit$lambda.1se
+
+coef(ridge_cv_fit)
+
+tidy(ridge_cv_fit)
+
+
+# Predict
+test_x_x <- test_x %>% dplyr::select(-c("League","NewLeague","Division"))
+
+
+defaultSummary(data.frame(obs = test_y,
+pred = as.vector(predict(ridge_cv_fit, as.matrix(test_x_x), s = "lambda.min")))
+)
+
+
+# Model Tuning
+ctrl <- trainControl(method = "cv", number = 10)
+set.seed(100)
+
+ridge_grid <- data.frame(
+  lambda = seq(0, 5000, length = 100)
+)
+
+
+ridge_tune <- train(train_x_x, train_y,
+                  method = "ridge",
+                  trControl = ctrl,
+                  tuneGrid = ridge_grid,
+                  preProc = c("center", "scale"))
+
+plot(ridge_tune)
+
+ridge_tune$results %>% filter(lambda == as.numeric(ridge_tune$bestTune))
+
+
+ridge_tune$finalModel
+
+
+
+defaultSummary(data.frame(obs = test_y,
+pred = as.vector(predict(ridge_tune, as.matrix(test_x_x))))
+)
+
+
+
+## Lasso Regression
+
+# Model
+train_x_x <- train_x %>% dplyr::select(-c("League","NewLeague","Division"))
+
+lasso_fit <- glmnet(as.matrix(train_x_x), y= train_y,
+                    alpha = 1)
+
+lasso_fit
+names(lasso_fit)
+lasso_fit$beta
+
+
+plot(lasso_fit, xvar = "lambda", label = TRUE)
+
+tidy(lasso_fit)
+
+lasso_fit$beta
+
+# Using CV for Lambda Selection
+lasso_cv_fit <- cv.glmnet(as.matrix(train_x_x), 
+                          y= train_y,
+                    alpha = 1)
+
+plot(lasso_cv_fit)
+
+
+ridge_cv_fit$lambda.1se
+
+coef(lasso_cv_fit)
+
+glance(lasso_cv_fit)
+
+# Predict
+test_x_x <- test_x %>% dplyr::select(-c("League","NewLeague","Division"))
+
+
+defaultSummary(data.frame(obs = test_y,
+pred = as.vector(predict(lasso_cv_fit, as.matrix(test_x_x))))
+)
+
+
+# Model Tuning
+ctrl <- trainControl(method = "cv", number = 10)
+set.seed(100)
+
+lasso_grid <- data.frame(
+  fraction = seq(.05, 1, length = 20)
+)
+
+
+lasso_tune <- train(train_x_x, train_y,
+                  method = "lasso",
+                  trControl = ctrl,
+                  tuneGrid = lasso_grid,
+                  preProc = c("center", "scale"))
+
+plot(lasso_tune)
+
+lasso_tune$results %>% filter(fraction == as.numeric(lasso_tune$bestTune))
+
+
+lasso_tune$finalModel
+
+
+
+defaultSummary(data.frame(obs = test_y,
+pred = as.vector(predict(lasso_tune, as.matrix(test_x_x))))
+)
+
+
+## ElasticNet Regression
+
+# Model
+enet_fit <- enet(x = as.matrix(train_x_x), y = train_y, 
+     lambda = 1,
+     normalize = TRUE)
+     
+ 
+# Predict
+predict(enet_fit, newx = as.matrix(test_x_x), s = 1, mode = "fraction", type = "fit")
+
+predict(enet_fit, newx = as.matrix(test_x_x), s = .1, mode = "fraction", type = "coefficients")
+
+# Model Tuning
+ctrl <- trainControl(method = "cv", number = 10)
+set.seed(100)
+
+enet_grid <- data.frame(
+  lambda = seq(0, 0.01, length = 20),
+  
+  fraction = seq(0.05, 1, length = 20)
+)
+
+
+enet_tune <- train(train_x_x, train_y,
+                  method = "enet",
+                  trControl = ctrl,
+                  tuneGrid = enet_grid,
+                  preProc = c("center", "scale"))
+
+
+plot(enet_tune)
+
+
+enet_tune$results %>% filter(fraction == as.numeric(enet_tune$bestTune))
+
+
+defaultSummary(data.frame(obs = test_y,
+pred = as.vector(predict(enet_tune, as.matrix(test_x_x))))
+)
+
+
+
+
+
